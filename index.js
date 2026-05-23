@@ -5,8 +5,8 @@ const app = express();
 app.use(express.json());
 
 // ================== CONFIG ==================
-const TOKEN = "PUT_DISCORD_BOT_TOKEN";
-const CLIENT_ID = "PUT_CLIENT_ID";
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 // ============================================
 
 const client = new Client({
