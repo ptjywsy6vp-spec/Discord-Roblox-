@@ -1,34 +1,44 @@
 const express = require("express");
 const { Client, GatewayIntentBits, Events } = require("discord.js");
 
-const app = express();
-app.use(express.json());
-
-// ================== CONFIG ==================
+// ================= SAFE START CHECK =================
 const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
-// ============================================
+
+if (!TOKEN) {
+  console.log("❌ Missing TOKEN in environment variables");
+  process.exit(1);
+}
+
+if (!CLIENT_ID) {
+  console.log("❌ Missing CLIENT_ID in environment variables");
+  process.exit(1);
+}
+// ====================================================
+
+const app = express();
+app.use(express.json());
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// storage
+// storage (temporary)
 const linkCodes = {};
 const linkedAccounts = {};
 
-// generate code
+// generate 6-digit code
 function generateCode() {
   return Math.random().toString(36).substring(2, 8).toUpperCase();
 }
 
-// login bot
+// BOT READY
 client.once(Events.ClientReady, () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  console.log(`✅ Logged in as ${client.user.tag}`);
 });
 
-// /link system (we will register command later)
-client.on(Events.InteractionCreate, async interaction => {
+// /link command
+client.on(Events.InteractionCreate, async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
   if (interaction.commandName === "link") {
@@ -40,7 +50,7 @@ client.on(Events.InteractionCreate, async interaction => {
     };
 
     await interaction.reply({
-      content: `Your link code is:\n\`${code}\`\nEnter this in Roblox.`,
+      content: `🔗 Your code:\n\`${code}\`\nEnter this in Roblox (expires in 5 min)`,
       ephemeral: true
     });
   }
@@ -58,18 +68,20 @@ app.post("/link", (req, res) => {
   linkedAccounts[userId] = data.discordId;
   delete linkCodes[code];
 
-  console.log("Linked:", linkedAccounts);
+  console.log("🔗 Linked:", userId, "→", data.discordId);
 
   res.send("Linked successfully");
 });
 
-// GAMEPASS PURCHASE ENDPOINT
+// GAMEPASS REWARD ENDPOINT
 app.post("/purchase", async (req, res) => {
   const { userId } = req.body;
 
   const discordId = linkedAccounts[userId];
 
-  if (!discordId) return res.status(404).send("Not linked");
+  if (!discordId) {
+    return res.status(404).send("User not linked");
+  }
 
   try {
     const user = await client.users.fetch(discordId);
@@ -81,14 +93,17 @@ app.post("/purchase", async (req, res) => {
 
     res.send("DM sent");
   } catch (err) {
-    console.log(err);
-    res.status(500).send("Error");
+    console.log("DM error:", err);
+    res.status(500).send("Failed to DM user");
   }
 });
 
-// start server
-app.listen(3000, () => {
-  console.log("Server running on port 3000");
+// START SERVER (Render needs this)
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("🌐 Server running on port", PORT);
 });
 
+// LOGIN BOT
 client.login(TOKEN);
